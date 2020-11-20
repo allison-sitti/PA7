@@ -224,21 +224,24 @@ class Net(nn.Module):
         minibatchLabels = [labels[x:x+4] for x in range(0, len(labels), 4)]
         return minibatchLabels
 
-    def getMiniBatch(self, minibatchAndLabel):
-        return minibatchAndLabel[0], minibatchAndLabel[1]
-
-    def getMiniBatchLabels(self, minibatchLabels):
-        return minibatchLabels[0], minibatchLabels[1], minibatchLabels[2], minibatchLabels[3]
-
     def convertToTensor(self, minibatches): 
         minibatchesToTensorsList = []
         for minibatch in minibatches:
             npArr = np.array(minibatch)
             #TODO: This is one line that may be causing the data type incompatible error
-            tensor = torch.from_numpy(npArr).type(torch.LongTensor)
+            #tensor = torch.from_numpy(npArr).type(torch.FloatTensor)
+            tensor = torch.tensor(npArr, dtype=torch.float32)
             minibatchesToTensorsList.append(tensor)
 
         return minibatchesToTensorsList
+
+    def convertLabelsToTensor(self, labels):
+        labelsToTensorsList = []
+        for label in labels:
+            tensor = torch.tensor(label, dtype=torch.int64)
+            labelsToTensorsList.append(tensor)
+
+        return labelsToTensorsList
 
     def combineMinibatchTensorsAndLabels(self, tensors, labels):
         miniBatchesAndLabels = []
@@ -250,9 +253,11 @@ class Net(nn.Module):
 
         return miniBatchesAndLabels
 
+    def getMiniBatch(self, minibatchAndLabel):
+        return minibatchAndLabel[0], minibatchAndLabel[1]
+
     def trainBatch(self, net, samples, outputFile):
-        #epochs = 200
-        epochs = 1
+        epochs = 200
         criterionCE = nn.CrossEntropyLoss()
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.5)
 
@@ -271,30 +276,32 @@ class Net(nn.Module):
         minibatchTensors = net.convertToTensor(minibatches)
         #print(minibatchTensors[0])
         # convert minibatch labels into a tensor
-        minibatchLabelTensors = net.convertToTensor(minibatchLabels)
+        minibatchLabelTensors = net.convertLabelsToTensor(minibatchLabels)
         #print(minibatchTensors[0])
 
         # put the tensors and the labels in one list
         minibatchesAndLabels = net.combineMinibatchTensorsAndLabels(minibatchTensors, minibatchLabelTensors)
 
+
         #train the data
         for e in range(0, epochs):
             for i in range(len(minibatchesAndLabels)):
                 data, labels = net.getMiniBatch(minibatchesAndLabels[i])
-                print(data)
-                print(labels)
                 optimizer.zero_grad()
                 out = net(data)
                 loss = criterionCE(out, labels)
                 loss.backward()
-                #print(loss)
+                print(loss)
                 optimizer.step
 
                 #TODO: validation
+                #TODO: store network in output file
 
 def main():
     net = Net()
     trainingSamples = net.processData(net)
+    #TODO: Figure out how to we're supposed to train the network using all the different sample sizes' 
+    # instead of just trainingSamples[0], which is the size 100 random samples set.
     net.trainBatch(net, trainingSamples[0], '/myNet.pth')
 
 if __name__ == "__main__":

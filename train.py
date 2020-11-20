@@ -4,8 +4,9 @@
 
 import numpy as np
 from numpy import genfromtxt
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import scipy
+from scipy import ndimage
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -34,33 +35,23 @@ class Net(nn.Module):
         x = self.fc3(x)
         return x
 
-    #TODO: This is unchanged from the last programming assignment. We will need to make it to where all values
-    # are divided by 255 to make them between 0 and 1.
-    def normalize(self, dataArray):
-        #sum all the columns
-        colSums = np.sum(dataArray, 0)
-        #get the mean from the sum
-        means = colSums / len(dataArray)
-        #get the standard deviation of the columns
-        stds = np.std(dataArray, 0)
-        #create an empty list for normalized data
-        data = []
-        #iterate through each row in the data array
-        for item in dataArray:
-            #for element in that row
-            for index in range(2):
-                #normalize that element
-                x = (item[index] - means[0]) / stds[0]
-                y = (item[index] - means[1]) / stds[1]
-            #then create an array out of it
-            arr = [x, y]
-            #add that array to data numpy array
-            data.append(arr)
+    def normalize(self, minibatches):
+        normalizedMinibatch = []
+        normalizedMinibatches = []
         
-        data = np.array(data)
+        for minibatch in minibatches:
+            normalizedMinibatch.clear()
+            for i in range(len(minibatch)):
+                normImg = np.true_divide(minibatch[i], 255.0)
+                # dataReshaped = np.reshape(normImg, (3, 32, 32), order='F')
+                dataReshaped = np.reshape(normImg, (32, 32, 3), order='F')
+                tr = ndimage.rotate(dataReshaped, -90)
+                normalizedMinibatch.append(tr)
+            normalizedMinibatchArr = np.array(normalizedMinibatch)
+            normalizedMinibatches.append(normalizedMinibatchArr)
 
-        return data
-    
+        return normalizedMinibatches
+            
     def unpickle(self, file):
         with open(file, 'rb') as fo:
             dict = pickle.load(fo, encoding='bytes')
@@ -142,7 +133,8 @@ class Net(nn.Module):
 
         for i in range(len(combinedBatchSizeSamples)):
             combinedBatchSizeSamples[i] = [y for x in samples[i] for y in x]
-        
+            random.shuffle(combinedBatchSizeSamples[i]) 
+
         return combinedBatchSizeSamples
 
     def processData(self, net):
@@ -159,18 +151,20 @@ class Net(nn.Module):
         batch4Dict = net.unpickle("cifar-10-python/data_batch_4")
         batch5Dict = net.unpickle("cifar-10-python/data_batch_5")
 
-        # throw all the dictionaries into a list
-        batchDicts = [batch1Dict, batch2Dict, batch3Dict, batch4Dict, batch5Dict]
+        # get dictionaries for the validation batch
+        valDict = net.unpickle("val_batch_osu")
 
-        # normalize the data of each dictionary's data numpy array
-        for dictionary in batchDicts:
-           net.normalize(dictionary[b'data'])
+        # throw all the data dictionaries into a list
+        batchDicts = [batch1Dict, batch2Dict, batch3Dict, batch4Dict, batch5Dict]
 
         # split up the data by class for each batch and put class labels with each image
         batchDataByClass = []
         for dictionary in batchDicts:
             dataByClass = net.separateDataByClass(dictionary[b'data'], dictionary[b'labels'])
             batchDataByClass.append(dataByClass)
+
+        # split up the data by class similarly for the validation batch
+        valDataByClass = net.separateDataByClass(valDict[b'data'], valDict[b'labels'])
 
         # Combine all the data with the same class from each batch.
             # Each element in the combinedClassData list corresponds to the entire set of images that 
@@ -192,7 +186,10 @@ class Net(nn.Module):
         # 10*220 total random samples, and so on up to samples[9] with 10*4720 random samples. 
         randomSamples = net.getRandomSamples(batchSizes, combinedClassData)
 
-        return randomSamples
+        #TODO: Do we get a small batch of the total validation sample for validating in the training loop or 
+        # do we use the whole thing every time we validate?
+
+        return randomSamples, valDataByClass
 
     def getSampleImages(self, samples):
         sampleImages = []
@@ -211,11 +208,7 @@ class Net(nn.Module):
         return sampleLabels
 
     def makeMiniBatches(self, sampleImages):
-        samples = []
-        for i in range(len(sampleImages)):
-            dataReshaped = np.reshape(sampleImages[i], (3, 32, 32), order='F')
-            samples.append(dataReshaped)
-        minibatches = [samples[x:x+4] for x in range(0, len(samples), 4)]
+        minibatches = [sampleImages[x:x+4] for x in range(0, len(sampleImages), 4)]
 
         return minibatches
 
@@ -227,10 +220,7 @@ class Net(nn.Module):
     def convertToTensor(self, minibatches): 
         minibatchesToTensorsList = []
         for minibatch in minibatches:
-            npArr = np.array(minibatch)
-            #TODO: This is one line that may be causing the data type incompatible error
-            #tensor = torch.from_numpy(npArr).type(torch.FloatTensor)
-            tensor = torch.tensor(npArr, dtype=torch.float32)
+            tensor = torch.tensor(minibatch, dtype=torch.float32)
             minibatchesToTensorsList.append(tensor)
 
         return minibatchesToTensorsList
@@ -256,53 +246,90 @@ class Net(nn.Module):
     def getMiniBatch(self, minibatchAndLabel):
         return minibatchAndLabel[0], minibatchAndLabel[1]
 
-    def trainBatch(self, net, samples, outputFile):
-        epochs = 200
+    def trainBatch(self, net, samples, valSamples, outputFile):
+        epochs = 20
         criterionCE = nn.CrossEntropyLoss()
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.5)
+        #running_loss = 0.0
+
+        #print(len(valSamples), len(samples))
 
         # Split the data from the labels for each image in the training set samples.
             # Since we passed in only one batch size worth of samples, 'samples' is 
             # a single list of image / label pairs.
         sampleImages = net.getSampleImages(samples)
         sampleLabels = net.getSampleLabels(samples)
+
+        # do the same for validation
+        valImages = net.getSampleImages(valSamples)
+        valLabels = net.getSampleLabels(valSamples)
+
+        # plot the first image in the random sample to check that they are loading into the program properly
+        # img = np.reshape(sampleImages[0], (32, 32, 3), order='F')
+        # tr = ndimage.rotate(img, -90)
+        # plt.imshow(tr)
+        # plt.show()
         
         # Create minibatches of size 4 for the images and the labels
         minibatches = net.makeMiniBatches(sampleImages)
         minibatchLabels = net.makeMiniBatchLabels(sampleLabels)
         #print(minibatchLabels[0])
 
+        #TODO: I don't know if we're supposed to get minibatches of validation data or not, but if we are
+        valMinibatches = net.makeMiniBatches(valImages)
+        valMinibatchLabels = net.makeMiniBatchLabels(valLabels)
+
+        # normalize the images in the minibatch
+        normalizedData = net.normalize(minibatches)
+
+        #TODO: same as above, idk if we're supposed to do this or not
+        normalizedValData = net.normalize(valMinibatches)
+
         # convert minibatch images into a tensor
-        minibatchTensors = net.convertToTensor(minibatches)
-        #print(minibatchTensors[0])
+        minibatchTensors = net.convertToTensor(normalizedData)
         # convert minibatch labels into a tensor
         minibatchLabelTensors = net.convertLabelsToTensor(minibatchLabels)
-        #print(minibatchTensors[0])
+        #print(minibatchTensors[1])
+
+        #TODO: same as above
+        valMinibatchTensors = net.convertToTensor(normalizedValData)
+        valMinibatchLabelTensors = net.convertLabelsToTensor(valMinibatchLabels)
 
         # put the tensors and the labels in one list
         minibatchesAndLabels = net.combineMinibatchTensorsAndLabels(minibatchTensors, minibatchLabelTensors)
 
+        #TODO: same as above
+        valMinibatchesAndLabels = net.combineMinibatchTensorsAndLabels(valMinibatchTensors, valMinibatchLabelTensors)
 
         #train the data
         for e in range(0, epochs):
             for i in range(len(minibatchesAndLabels)):
+                net.train()
                 data, labels = net.getMiniBatch(minibatchesAndLabels[i])
+                dataReshaped = torch.reshape(data, (4, 3, 32, 32))
                 optimizer.zero_grad()
-                out = net(data)
+                out = net(dataReshaped)
                 loss = criterionCE(out, labels)
                 loss.backward()
-                print(loss)
+                print('[Epoch %d] loss: %.3f' % (e + 1, loss.item()))
+                #running_loss += loss.item() 
+                #print('[Epoch %d] loss: %.3f' % (e + 1, running_loss))
                 optimizer.step
 
-                #TODO: validation
+                #TODO: validation, here is the start of it, I think
+                net.eval()
+                with torch.no_grad():
+                    data, labels = net.getMiniBatch(valMinibatchesAndLabels)
+
+
                 #TODO: store network in output file
 
 def main():
     net = Net()
-    trainingSamples = net.processData(net)
+    trainingSamples, validationSamples = net.processData(net)
     #TODO: Figure out how to we're supposed to train the network using all the different sample sizes' 
     # instead of just trainingSamples[0], which is the size 100 random samples set.
-    net.trainBatch(net, trainingSamples[0], '/myNet.pth')
+    net.trainBatch(net, trainingSamples[0], validationSamples[0], '/myNet.pth')
 
 if __name__ == "__main__":
     main()

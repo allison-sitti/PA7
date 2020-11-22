@@ -43,10 +43,8 @@ class Net(nn.Module):
             normalizedMinibatch.clear()
             for i in range(len(minibatch)):
                 normImg = np.true_divide(minibatch[i], 255.0)
-                # dataReshaped = np.reshape(normImg, (3, 32, 32), order='F')
-                dataReshaped = np.reshape(normImg, (32, 32, 3), order='F')
-                tr = ndimage.rotate(dataReshaped, -90)
-                normalizedMinibatch.append(tr)
+                dataReshaped = np.reshape(normImg, (3, 32, 32))
+                normalizedMinibatch.append(dataReshaped)
             normalizedMinibatchArr = np.array(normalizedMinibatch)
             normalizedMinibatches.append(normalizedMinibatchArr)
 
@@ -76,6 +74,17 @@ class Net(nn.Module):
                     dataByClass[i].append([data[j], i])
 
         return dataByClass
+
+    def putValDataInList(self, data, labels):
+        valDataList = []
+
+        for i in range(len(data)):
+            for j in range(len(labels)):
+                if labels[j] == i:
+                    valDataList.append([data[j], i])
+        random.shuffle(valDataList)
+
+        return valDataList
 
     def combineClassesAcrossBatches(self, batchesByClass):
         combinedClass0 = []
@@ -111,7 +120,6 @@ class Net(nn.Module):
         return flattenedCombinedClasses
 
     def getRandomSamples(self, batchSizes, combinedClassData):
-        samples = []
         combined0 = []
         combined1 = []
         combined2 = []
@@ -122,22 +130,33 @@ class Net(nn.Module):
         combined7 = []
         combined8 = []
         combined9 = []
-        combinedBatchSizeSamples = [combined0, combined1, combined2, combined3, combined4, combined5, combined6, combined7, combined8, combined9]
-                
-        for batchSize in batchSizes:
-            samplesPerBatchSize = []
-            for classImagesList in combinedClassData:
-                batchSizeSamples = random.sample(classImagesList, batchSize)
-                samplesPerBatchSize.append(batchSizeSamples)
-            samples.append(samplesPerBatchSize)
+        combined10 = []
+        combined11 = []
+        combined12 = []
+        combined13 = []
+        combined14 = []
+        combined15 = []
+        combined16 = []
+        combined17 = []
+        combined18 = []
+        combined19 = []
+        combinedBatchSizeSamples = [combined0, combined1, combined2, combined3, combined4, combined5, combined6, combined7, combined8, combined9,
+        combined10, combined11, combined12, combined13, combined14, combined15, combined16, combined17, combined18, combined19]
 
+        samples = []
+        for aBatchSize in batchSizes:
+            samplesFromEachBatchSize = []
+            for aClass in combinedClassData:
+                samplesFromABatchSize = random.sample(aClass, aBatchSize)
+                samplesFromEachBatchSize.append(samplesFromABatchSize)
+            samples.append(samplesFromEachBatchSize)
         for i in range(len(combinedBatchSizeSamples)):
             combinedBatchSizeSamples[i] = [y for x in samples[i] for y in x]
             random.shuffle(combinedBatchSizeSamples[i]) 
 
         return combinedBatchSizeSamples
 
-    def processData(self, net):
+    def processData(self, net, batchSizes):
         # Get the dictionaries for each data batch. 
         # Each batch is a dict of <numpy array of data, list of labels>
         # where data[i] corresponds to list[i] and i represents one row
@@ -163,8 +182,8 @@ class Net(nn.Module):
             dataByClass = net.separateDataByClass(dictionary[b'data'], dictionary[b'labels'])
             batchDataByClass.append(dataByClass)
 
-        # split up the data by class similarly for the validation batch
-        valDataByClass = net.separateDataByClass(valDict[b'data'], valDict[b'labels'])
+        # Put all the data from the validation batch into a list and shuffle the list
+        valData = net.putValDataInList(valDict[b'data'], valDict[b'labels'])
 
         # Combine all the data with the same class from each batch.
             # Each element in the combinedClassData list corresponds to the entire set of images that 
@@ -172,24 +191,19 @@ class Net(nn.Module):
             # set of images. So, combinedClassData[0] is a list that is the set of all images 
             # belonging to class 0. Each image also has its classification label stored with it.
         combinedClassData = net.combineClassesAcrossBatches(batchDataByClass)
-
-        # We were assigned the following sample sizes:
-        # Allison: 100, 600, 1100, 1600, 2100, 2600, 3100, 3600, 4100, 4600
-        # Clint: 220, 720, 1220, 1720, 2220, 2720, 3220, 3720, 4220, 4720
-        batchSizes = [100, 220, 600, 720, 1100, 1220, 1600, 1720, 2100, 2220, 2600, 2720,
-        3100, 3220, 3600, 3720, 4100, 4220, 4600, 4720]
+        # Note: the validation data is only one batch, so it already has all images separated by class with
+        # nothing to combine
 
         # Take the data that has been organized by classification and remove random samples equal 
         # to the sample sizes we've been assigned from each classification, storing the samples for each
-        # sample size in a list organized by sample size in ascending order. So, samples[0] will have
-        # 100 random samples per class label i.e. 10*100 = 1000 total random samples. samples[1] will have
-        # 10*220 total random samples, and so on up to samples[9] with 10*4720 random samples. 
+        # sample size in a list organized by classification, where each classification contains samples
+        # for all 20 batch sizes randomly shuffled. So, randomSamples[0] would be for all classification 0 data, and
+        # randomSamples[0][0] would be classification 0 data with 10*100 = 1000 total images.
         randomSamples = net.getRandomSamples(batchSizes, combinedClassData)
+        # Note: We use the entire validation set each iteration through the loop, so we don't need to
+        # get random samples from it. 
 
-        #TODO: Do we get a small batch of the total validation sample for validating in the training loop or 
-        # do we use the whole thing every time we validate?
-
-        return randomSamples, valDataByClass
+        return randomSamples, valData
 
     def getSampleImages(self, samples):
         sampleImages = []
@@ -246,90 +260,116 @@ class Net(nn.Module):
     def getMiniBatch(self, minibatchAndLabel):
         return minibatchAndLabel[0], minibatchAndLabel[1]
 
+    def plotImage(self, image):
+        img = np.reshape(image, (32, 32, 3), order='F')
+        tr = ndimage.rotate(img, -90)
+        plt.figure(figsize=(2, 2))
+        plt.imshow(tr)
+        plt.show()
+
     def trainBatch(self, net, samples, valSamples, outputFile):
-        epochs = 20
         criterionCE = nn.CrossEntropyLoss()
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.5)
-        #running_loss = 0.0
-
-        #print(len(valSamples), len(samples))
 
         # Split the data from the labels for each image in the training set samples.
             # Since we passed in only one batch size worth of samples, 'samples' is 
             # a single list of image / label pairs.
         sampleImages = net.getSampleImages(samples)
         sampleLabels = net.getSampleLabels(samples)
-
         # do the same for validation
         valImages = net.getSampleImages(valSamples)
         valLabels = net.getSampleLabels(valSamples)
 
-        # plot the first image in the random sample to check that they are loading into the program properly
-        # img = np.reshape(sampleImages[0], (32, 32, 3), order='F')
-        # tr = ndimage.rotate(img, -90)
-        # plt.imshow(tr)
-        # plt.show()
-        
+        # plot an image to ensure it is correctly displayed and loaded in
+        # net.plotImage(sampleImages[0])
+
         # Create minibatches of size 4 for the images and the labels
         minibatches = net.makeMiniBatches(sampleImages)
         minibatchLabels = net.makeMiniBatchLabels(sampleLabels)
-        #print(minibatchLabels[0])
-
-        #TODO: I don't know if we're supposed to get minibatches of validation data or not, but if we are
+        # Create minibatches of size 4 for the images and labels of validation data
         valMinibatches = net.makeMiniBatches(valImages)
         valMinibatchLabels = net.makeMiniBatchLabels(valLabels)
 
-        # normalize the images in the minibatch
+        # normalize the images in the minibatches
         normalizedData = net.normalize(minibatches)
-
-        #TODO: same as above, idk if we're supposed to do this or not
+        # normalize the images in validation data
         normalizedValData = net.normalize(valMinibatches)
 
-        # convert minibatch images into a tensor
+        # convert minibatch images into a tensors
         minibatchTensors = net.convertToTensor(normalizedData)
-        # convert minibatch labels into a tensor
+        # convert minibatch labels into a tensors
         minibatchLabelTensors = net.convertLabelsToTensor(minibatchLabels)
-        #print(minibatchTensors[1])
-
-        #TODO: same as above
+        # convert validation images into tensors
         valMinibatchTensors = net.convertToTensor(normalizedValData)
+        # convert validation labels into tensors
         valMinibatchLabelTensors = net.convertLabelsToTensor(valMinibatchLabels)
 
         # put the tensors and the labels in one list
         minibatchesAndLabels = net.combineMinibatchTensorsAndLabels(minibatchTensors, minibatchLabelTensors)
+        valDataMinibatchesAndLabels = net.combineMinibatchTensorsAndLabels(valMinibatchTensors, valMinibatchLabelTensors)
 
-        #TODO: same as above
-        valMinibatchesAndLabels = net.combineMinibatchTensorsAndLabels(valMinibatchTensors, valMinibatchLabelTensors)
-
+        epochs = 200
+        runningLossHistory = []
+        runningCorrectsHistory = []
+        printFreq = 100
+        
         #train the data
         for e in range(0, epochs):
+            runningLoss = 0.0
+            runningCorrects = 0.0
+
             for i in range(len(minibatchesAndLabels)):
-                net.train()
                 data, labels = net.getMiniBatch(minibatchesAndLabels[i])
-                dataReshaped = torch.reshape(data, (4, 3, 32, 32))
                 optimizer.zero_grad()
-                out = net(dataReshaped)
+                out = net(data)
                 loss = criterionCE(out, labels)
                 loss.backward()
-                print('[Epoch %d] loss: %.3f' % (e + 1, loss.item()))
-                #running_loss += loss.item() 
-                #print('[Epoch %d] loss: %.3f' % (e + 1, running_loss))
-                optimizer.step
-
-                #TODO: validation, here is the start of it, I think
-                net.eval()
-                with torch.no_grad():
-                    data, labels = net.getMiniBatch(valMinibatchesAndLabels)
-
-
-                #TODO: store network in output file
+                optimizer.step()
+                if i % printFreq == 0:
+                    print('[Range: %d Epoch: %d] loss: %.4f' % (len(samples) / 10, e + 1, loss.item()))
+            
+            # Validation
+            with torch.no_grad():
+                for i in range(len(valDataMinibatchesAndLabels)):
+                    dataVal, labelsVal = net.getMiniBatch(valDataMinibatchesAndLabels[i])
+                    outVal = net(dataVal)
+                    _, predictions = torch.max(outVal, dim=1)
+                    lossVal = criterionCE(outVal, labelsVal)
+                    runningLoss += lossVal.item()
+                    for i in range(len(labelsVal)):
+                        runningCorrects += torch.sum(predictions == labelsVal[i])
+            epochLoss = runningLoss/len(valDataMinibatchesAndLabels)
+            accuracy = runningCorrects.float()/len(valDataMinibatchesAndLabels)
+            runningLossHistory.append(epochLoss)
+            runningCorrectsHistory.append(accuracy)
+        print('Validation Accuracy: %2.2f' % (100 * (runningCorrects.item() / (len(valDataMinibatchesAndLabels) * 4))))
+        #wait = input('wait') # use this if you want to test code but don't want to save (overwrite) the network
+        torch.save(net.state_dict(), outputFile) 
+        print('Training completed, network saved to \'', outputFile, '\'.')
 
 def main():
     net = Net()
-    trainingSamples, validationSamples = net.processData(net)
-    #TODO: Figure out how to we're supposed to train the network using all the different sample sizes' 
-    # instead of just trainingSamples[0], which is the size 100 random samples set.
-    net.trainBatch(net, trainingSamples[0], validationSamples[0], '/myNet.pth')
+    # We were assigned the following sample sizes:
+    # Allison: 100, 600, 1100, 1600, 2100, 2600, 3100, 3600, 4100, 4600
+    # Clint: 220, 720, 1220, 1720, 2220, 2720, 3220, 3720, 4220, 4720
+    batchSizes = [100, 220, 600, 720, 1100, 1220, 1600, 1720, 2100, 2220, 2600, 2720,
+    3100, 3220, 3600, 3720, 4100, 4220, 4600, 4720]
+
+    trainingSamples, validationSamples = net.processData(net, batchSizes)
+
+    outputFiles = []
+    for i in range(len(batchSizes)):
+        if not i % 2 == 0:
+            outputFile = './Saved_Networks/clintNetRange' + str(batchSizes[i]) + '.pth'
+        else:
+            outputFile = './Saved_Networks/allisonNetRange' + str(batchSizes[i]) + '.pth'
+        outputFiles.append(outputFile)
+
+    samplesIter = iter(range(0, 20))
+    for i in samplesIter:
+        net.trainBatch(net, trainingSamples[i], validationSamples, outputFiles[i])
+        net.trainBatch(net, trainingSamples[i+1], validationSamples, outputFiles[i+1])
+        next(samplesIter, None)
 
 if __name__ == "__main__":
     main()

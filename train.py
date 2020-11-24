@@ -360,9 +360,9 @@ def main():
     outputFiles = []
     for i in range(len(batchSizes)):
         if not i % 2 == 0:
-            outputFile = './Saved_Networks/clintNetRange' + str(batchSizes[i]) + '.pth'
+            outputFile = './Saved_Networks/clintNetRange' + str(batchSizes[i]) + '_v3.pth'
         else:
-            outputFile = './Saved_Networks/allisonNetRange' + str(batchSizes[i]) + '.pth'
+            outputFile = './Saved_Networks/allisonNetRange' + str(batchSizes[i]) + '_v3.pth'
         outputFiles.append(outputFile)
 
     samplesIter = iter(range(0, 20))

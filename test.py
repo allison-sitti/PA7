@@ -157,7 +157,7 @@ class Net(nn.Module):
                     lossVal = criterionCE(out, labelsVal)
                     for i in range(len(labelsVal)):
                         runningCorrects += torch.sum(predictions == labelsVal[i])
-            accuracy = (runningCorrects.item() / (len(minibatchesAndLabels) * 4)) * 100
+            accuracy = (runningCorrects.item() / (len(minibatchesAndLabels) * 4)) 
             accuracyHistory.append(accuracy)
             runningCorrects = 0.0
 

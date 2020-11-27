@@ -50,104 +50,136 @@ class Net(nn.Module):
         with open(file, 'rb') as fo:
             dict = pickle.load(fo, encoding='bytes')
         return dict
-    
-    def separateDataByClass(self, data, labels):
-        dataByClass0 = []
-        dataByClass1 = []
-        dataByClass2 = []
-        dataByClass3 = []
-        dataByClass4 = []
-        dataByClass5 = []
-        dataByClass6 = []
-        dataByClass7 = []
-        dataByClass8 = []
-        dataByClass9 = []
-        dataByClass = [dataByClass0, dataByClass1, dataByClass2, dataByClass3, dataByClass4, dataByClass5, dataByClass6, dataByClass7, dataByClass8, dataByClass9]
 
-        for i in range(len(dataByClass)):
+    def putDataInList(self, data, labels):
+        dataList = []
+
+        for i in range(len(data)):
             for j in range(len(labels)):
                 if labels[j] == i:
-                    dataByClass[i].append([data[j], i])
-        
-        return dataByClass
-    
-    def getRandomSamples(self, batchSizes, combinedClassData):
-        combined0 = []
-        combined1 = []
-        combined2 = []
-        combined3 = []
-        combined4 = []
-        combined5 = []
-        combined6 = []
-        combined7 = []
-        combined8 = []
-        combined9 = []
-        combined10 = []
-        combined11 = []
-        combined12 = []
-        combined13 = []
-        combined14 = []
-        combined15 = []
-        combined16 = []
-        combined17 = []
-        combined18 = []
-        combined19 = []
-        combinedBatchSizeSamples = [combined0, combined1, combined2, combined3, combined4, combined5, combined6, combined7, combined8, combined9,
-        combined10, combined11, combined12, combined13, combined14, combined15, combined16, combined17, combined18, combined19]
+                    dataList.append([data[j], i])
+        random.shuffle(dataList)
 
-        samples = []
-        for aBatchSize in batchSizes:
-            samplesFromEachBatchSize = []
-            for aClass in combinedClassData:
-                samplesFromABatchSize = random.sample(aClass, aBatchSize)
-                samplesFromEachBatchSize.append(samplesFromABatchSize)
-            samples.append(samplesFromEachBatchSize)
-        for i in range(len(combinedBatchSizeSamples)):
-            combinedBatchSizeSamples[i] = [y for x in samples[i] for y in x]
-            random.shuffle(combinedBatchSizeSamples[i]) 
-
-        return combinedBatchSizeSamples
+        return dataList
 
     def processData(self, net, batchSizes):
         # get dictionary of data and label
         batchDict = net.unpickle("test_batch_osu")
 
-        batchByClass = []
-        dataByClass = net.separateDataByClass(batchDict[b'data'], batchDict[b'labels'])
-        batchByClass.append(dataByClass)
+        dataInList = net.putDataInList(batchDict[b'data'], batchDict[b'labels'])
+        return dataInList 
 
-        randomSamples = net.getRandomSamples(batchSizes, batchByClass)
+    def getSampleImages(self, samples):
+        sampleImages = []
 
-        return randomSamples
+        for imageLabelPair in samples:
+           sampleImages.append(imageLabelPair[0])
+                
+        return sampleImages
 
-    def test(self, net, randomSample, outputFile):
+    def getSampleLabels(self, samples):
+        sampleLabels = []
+
+        for imageLabelPair in samples:
+           sampleLabels.append(imageLabelPair[1])
+
+        return sampleLabels
+
+    def makeMiniBatches(self, sampleImages):
+        minibatches = [sampleImages[x:x+4] for x in range(0, len(sampleImages), 4)]
+        return minibatches
+
+    def makeMiniBatchLabels(self, sampleLabels):
+        labels = np.array(sampleLabels)
+        minibatchLabels = [labels[x:x+4] for x in range(0, len(labels), 4)]
+        return minibatchLabels
+    
+    def convertToTensor(self, minibatches): 
+        minibatchesToTensorsList = []
+        for minibatch in minibatches:
+            tensor = torch.tensor(minibatch, dtype=torch.float32)
+            minibatchesToTensorsList.append(tensor)
+
+        return minibatchesToTensorsList
+
+    def convertLabelsToTensor(self, labels):
+        labelsToTensorsList = []
+        for label in labels:
+            tensor = torch.tensor(label, dtype=torch.int64)
+            labelsToTensorsList.append(tensor)
+
+        return labelsToTensorsList
+
+    def combineMinibatchTensorsAndLabels(self, tensors, labels):
+        miniBatchesAndLabels = []
+
+        for i in range(len(tensors)):
+            minibatch = tensors[i]
+            minibatchLabels = labels[i]
+            miniBatchesAndLabels.append([minibatch, minibatchLabels])
+
+        return miniBatchesAndLabels
+
+    def getMiniBatch(self, minibatchAndLabel):
+        return minibatchAndLabel[0], minibatchAndLabel[1]
+
+    def test(self, net, testSample, networks, batchSize):
         correct = 0
         total = 0
+        runningCorrects = 0.0
+        accuracyHistory = []
+        criterionCE = nn.CrossEntropyLoss()
+        optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.5)
 
-        # get list of all networks inside of Saved_Networks foler
-        networks = listdir('./Saved_Networks')
+        images = net.getSampleImages(testSample)
+        labels = net.getSampleLabels(testSample)
 
-        net.load_state_dict(torch.load(networks[0]))
-        
+        miniBatches = net.makeMiniBatches(images)
+        miniBatchLabels = net.makeMiniBatchLabels(labels)
 
+        # normalize
+        normalizedData= net.normalize(miniBatches)
+    
+        # convert to tensors
+        miniBatchTensor = net.convertToTensor(normalizedData)
+        miniBatchLabelTensor = net.convertLabelsToTensor(miniBatchLabels)
+
+        # combine labels and data into one list
+        minibatchesAndLabels = net.combineMinibatchTensorsAndLabels(miniBatchTensor, miniBatchLabelTensor)
+
+        for i in range(len(networks)):
+            net.load_state_dict(torch.load('./Saved_Networks/' + networks[i]))
+            with torch.no_grad():
+                for i in range(len(minibatchesAndLabels)):
+                    dataVal, labelsVal = net.getMiniBatch(minibatchesAndLabels[i])
+                    out = net(dataVal)
+                    _, predictions = torch.max(out, dim=1)
+                    lossVal = criterionCE(out, labelsVal)
+                    for i in range(len(labelsVal)):
+                        runningCorrects += torch.sum(predictions == labelsVal[i])
+            accuracy = (runningCorrects.item() / (len(minibatchesAndLabels) * 4)) * 100
+            accuracyHistory.append(accuracy)
+            runningCorrects = 0.0
+
+        f = open("testresults.txt", "a")
+        f.write(str(batchSize) + ' ' + str(accuracyHistory[0]) + ' ' + str(accuracyHistory[1]) + ' ' + str(accuracyHistory[2]) + '\n')
+        f.close()
 
 
 def main():
     batchSizes = [100, 220, 600, 720, 1100, 1220, 1600, 1720, 2100, 2220, 2600, 2720,
     3100, 3220, 3600, 3720, 4100, 4220, 4600, 4720]
+    open('testresults.txt', 'w').close()
 
     net = Net()
 
-    randomSample = net.processData(net, batchSizes)
+    testData = net.processData(net, batchSizes)
 
-    outputFile = './testresults.txt'
+    networks = sorted(listdir('./Saved_Networks'))
+    groupsOfThree = list(zip(*[iter(networks)]*3))
 
-    dirs = listdir('./Saved_Networks')
-
-    print(dirs)
-
-    # for i in range(0, 3):
-    #     net.testBatch(net, randomSample, outputFile)
+    for i in range(len(groupsOfThree)):
+        net.test(net, testData, groupsOfThree[i], batchSizes[i])
 
 
 if __name__ == '__main__':

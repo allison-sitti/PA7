@@ -10,6 +10,7 @@ import torch.optim as optim
 import sys
 import pickle
 import random
+from os import listdir
 
 class Net(nn.Module):
     def __init__(self):
@@ -49,35 +50,25 @@ class Net(nn.Module):
         with open(file, 'rb') as fo:
             dict = pickle.load(fo, encoding='bytes')
         return dict
-    
-    def combineBatches(self, batchedData):
-        combinedBatches = []
-        combinedData = []
-        for dictionary in batchedData:
-            data = dictionary[b'data']
-            labels = dictionary[b'labels']
-            combinedBatches.append([data, labels])
 
-        for dataAndLabelPair in combinedBatches:
-            for i in range(len(dataAndLabelPair[0])):
-                combinedData.append([dataAndLabelPair[0][i], dataAndLabelPair[1][i]])
+    def parseData(self, data, labels):
+        testData = []
+        for i in range(len(data)):
+            testData.append([data[i], labels[i]])
+        random.shuffle(testData)
         
-        random.shuffle(combinedData)
-
-        return combinedData
+        return testData
 
     def processData(self, net):
-        batch1Dict = net.unpickle("cifar-10-python/data_batch_1")
-        batch2Dict = net.unpickle("cifar-10-python/data_batch_2")
-        batch3Dict = net.unpickle("cifar-10-python/data_batch_3")
-        batch4Dict = net.unpickle("cifar-10-python/data_batch_4")
-        batch5Dict = net.unpickle("cifar-10-python/data_batch_5")
-        
-        batchDicts = [batch1Dict, batch2Dict, batch3Dict, batch4Dict, batch5Dict]
-        combinedData = net.combineBatches(batchDicts)
+        # get dictionary of data and label
+        imageNetDict = net.unpickle("ImageNet_test_batch")
+        cifarDict = net.unpickle("test_batch_osu")
 
-        return combinedData
-    
+        imageNet = net.parseData(imageNetDict['data'], imageNetDict['labels'])
+        cifar = net.parseData(cifarDict[b'data'], cifarDict[b'labels'])
+
+        return imageNet, cifar
+
     def getSampleImages(self, samples):
         sampleImages = []
 
@@ -93,10 +84,9 @@ class Net(nn.Module):
            sampleLabels.append(imageLabelPair[1])
 
         return sampleLabels
-    
+
     def makeMiniBatches(self, sampleImages):
         minibatches = [sampleImages[x:x+4] for x in range(0, len(sampleImages), 4)]
-
         return minibatches
 
     def makeMiniBatchLabels(self, sampleLabels):
@@ -132,49 +122,59 @@ class Net(nn.Module):
 
     def getMiniBatch(self, minibatchAndLabel):
         return minibatchAndLabel[0], minibatchAndLabel[1]
+
+    def test(self, net, testSample, network, testIdx):
+        runningCorrects = 0.0
+
+        images = net.getSampleImages(testSample)
+        labels = net.getSampleLabels(testSample)
+
+        miniBatches = net.makeMiniBatches(images)
+        miniBatchLabels = net.makeMiniBatchLabels(labels)
+
+        # normalize
+        normalizedData= net.normalize(miniBatches)
     
-    def trainBatch(self, net, samples, outputFile):
-        criterionCE = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.5)
+        # convert to tensors
+        miniBatchTensor = net.convertToTensor(normalizedData)
+        miniBatchLabelTensor = net.convertLabelsToTensor(miniBatchLabels)
 
-        sampleImages = net.getSampleImages(samples)
-        sampleLabels = net.getSampleLabels(samples)
+        # combine labels and data into one list
+        minibatchesAndLabels = net.combineMinibatchTensorsAndLabels(miniBatchTensor, miniBatchLabelTensor)
 
-        minibatches = net.makeMiniBatches(sampleImages)
-        minibatchLabels = net.makeMiniBatchLabels(sampleLabels)
-    
-        normalizedData = net.normalize(minibatches)
-
-        minibatchTensors = net.convertToTensor(normalizedData)
-        minibatchLabelTensors = net.convertLabelsToTensor(minibatchLabels)
-
-        minibatchAndLabels = net.combineMinibatchTensorsAndLabels(minibatchTensors, minibatchLabelTensors)
-
-        epochs = 200
-        printFreq = 100
-
-        for e in range(0, epochs):
-            for i in range(len(minibatchAndLabels)):
-                data, labels = net.getMiniBatch(minibatchAndLabels[i])
-                optimizer.zero_grad()
+        with torch.no_grad():
+            for i in range(len(minibatchesAndLabels)):
+                data, labels = net.getMiniBatch(minibatchesAndLabels[i])
                 out = net(data)
-                loss = criterionCE(out, labels)
-                loss.backward()
-                optimizer.step()
-                if i % printFreq == 0:
-                    print('[Epoch: %d] loss: %.4f' % (e + 1, loss.item()))
-        torch.save(net.state_dict(), outputFile)
-        print('Training completed, network saved to \'', outputFile, '\'.')
+                _, predictions = torch.max(out, dim=1)
+                for i in range(len(labels)):
+                    runningCorrects += torch.sum(predictions == labels[i])
+        accuracy = (runningCorrects.item() / (len(minibatchesAndLabels) * 4)) 
+
+        if testIdx == 0:
+            f = open("testresults_task2.txt", "a")
+            f.write('Best Network Using ImageNet: ' + str(accuracy) + '\n')
+            f.close()
+        else:
+            f = open("testresults_task2.txt", "a")
+            f.write('Best Network Using Cifar-10: ' + str(accuracy) + '\n')
+            f.close()
 
 
 def main():
+    open('testresults_task2.txt', 'w').close()
     net = Net()
-    previous = torch.load('./Saved_Networks/allisonNetRange3600_v2.pth')
-    net.load_state_dict(previous)
+    network = torch.load('./Saved_Networks/bestNetwork.pth')
+    net.load_state_dict(network)
 
-    trainingData = net.processData(net)
+    testData = []
+    testDataImageNet, testDataCifar = net.processData(net)
+    testData.append(testDataImageNet)
+    testData.append(testDataCifar)
 
-    net.trainBatch(net, trainingData, './Saved_Networks/bestNetwork.pth')
+    for i in range(len(testData)):
+        net.test(net, testData[i], network, i)
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     main()

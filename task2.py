@@ -69,6 +69,39 @@ class Net(nn.Module):
                     dataByClass[i].append([data[j], i])
 
         return dataByClass
+
+    def combineClassesAcrossBatches(self, batchesByClass):
+        combinedClass0 = []
+        combinedClass1 = []
+        combinedClass2 = []
+        combinedClass3 = []
+        combinedClass4 = []
+        combinedClass5 = []
+        combinedClass6 = []
+        combinedClass7 = []
+        combinedClass8 = []
+        combinedClass9 = []
+        combinedClassesData = [combinedClass0, combinedClass1, combinedClass2, combinedClass3, combinedClass4, combinedClass5, combinedClass6, combinedClass7, combinedClass8, combinedClass9]
+        flattenedCombinedClass0 = []
+        flattenedCombinedClass1 = []
+        flattenedCombinedClass2 = []
+        flattenedCombinedClass3 = []
+        flattenedCombinedClass4 = []
+        flattenedCombinedClass5 = []
+        flattenedCombinedClass6 = []
+        flattenedCombinedClass7 = []
+        flattenedCombinedClass8 = []
+        flattenedCombinedClass9 = []
+        flattenedCombinedClasses = [flattenedCombinedClass0, flattenedCombinedClass1, flattenedCombinedClass2, flattenedCombinedClass3, flattenedCombinedClass4, flattenedCombinedClass5, flattenedCombinedClass6, flattenedCombinedClass7, flattenedCombinedClass8, flattenedCombinedClass9]
+        
+        for batch in batchesByClass:
+            for i in range(len(combinedClassesData)):
+                combinedClassesData[i].append(batch[i])
+
+        for i in range(len(combinedClassesData)):
+            flattenedCombinedClasses[i] = [y for x in combinedClassesData[i] for y in x]        
+
+        return flattenedCombinedClasses
         
     def getRandomSamples(self, batchSize, combinedClassData):
         combined0 = []
@@ -98,6 +131,10 @@ class Net(nn.Module):
         for aClass in combinedClassData:
             samplesFromABatchSize = random.sample(aClass, batchSize)
             samples.append(samplesFromABatchSize)
+
+        print(len(combinedBatchSizeSamples))
+        print(len(samples))
+
         for i in range(len(combinedBatchSizeSamples)):
             combinedBatchSizeSamples[i] = [y for x in samples[i] for y in x]
             random.shuffle(combinedBatchSizeSamples[i]) 
@@ -119,9 +156,10 @@ class Net(nn.Module):
             dataByClass = net.separateDataByClass(dictionary[b'data'], dictionary[b'labels'])
             batchDataByClass.append(dataByClass)
         
-        print(len(batchDataByClass))
 
-        randomSamples = net.getRandomSamples(batchSize, dataByClass)
+        combinedClassData = net.combineClassesAcrossBatches(batchDataByClass)
+
+        randomSamples = net.getRandomSamples(batchSize, combinedClassData)
     
         return randomSamples
     

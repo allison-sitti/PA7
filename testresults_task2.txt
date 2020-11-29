@@ -1,2 +1,2 @@
-Best Network Using ImageNet: 0.63875
-Best Network Using Cifar-10: 0.7584
+Best Network Using ImageNet: 0.6575
+Best Network Using Cifar-10: 0.8382

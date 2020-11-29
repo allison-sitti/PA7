@@ -1,0 +1,2 @@
+Best Network, Retrained. Using ImageNet: 0.8525
+Best Network, Retrained. Using Cifar-10: 1.042

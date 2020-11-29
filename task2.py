@@ -169,8 +169,6 @@ class Net(nn.Module):
 
 def main():
     net = Net()
-    previous = torch.load('./Saved_Networks/allisonNetRange3600_v2.pth')
-    net.load_state_dict(previous)
 
     trainingData = net.processData(net)
 

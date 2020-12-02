@@ -54,13 +54,16 @@ class Net(nn.Module):
 
     def convertToTensor(self, image):
         tensor = torch.tensor(image, dtype=torch.float32)
+        tensor = tensor.view(1, 3, 32, 32)
         return tensor
 
     def predictLabel(self, net, image):
-        image = image.unsqueeze(0)
         out = net(image)
-        _, prediction = torch.max(out, dim=1)
-        print(prediction)
+        prediction = int(torch.max(out.data, 1)[1].numpy())
+        labels = ['an airplane', 'an automobile', 'a bird', 'a cat', 'a deer', 'a dog', 'a frog', 'a horse', 'a ship', 'a truck']
+        for i in range(len(labels)):
+            if i == prediction:
+                print('Prediction: ' + str(i) + '.\nThe prediction is that the image is [' + str(labels[i]) + '].')
     
 def main():
     net = Net()

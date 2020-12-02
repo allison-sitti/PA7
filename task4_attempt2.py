@@ -55,8 +55,12 @@ class Net(nn.Module):
     def predictLabel(self, net, image):
         image = image.unsqueeze(0)
         out = net(image)
-        _, prediction = torch.max(out, dim=1)
-        print(prediction)
+        prediction = int(torch.max(out.data, 1)[1].numpy())
+        labels = ['Airplane', 'Automobile', 'Bird', 'Cat', 'Deer', 'Dog', 'Frog', 'Horse', 'Ship', 'Truck']
+        for i in range(len(labels)):
+            if i == prediction:
+                print(labels[i])
+        
     
 def main():
     net = Net()

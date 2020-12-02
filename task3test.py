@@ -12,11 +12,9 @@ import pickle
 import random
 from os import listdir
 
-#TODO: copy / paste this file's contents into a new file and rename it task3AllisonTest_v1.py or something
 
 class Net(nn.Module):
     def __init__(self):
-        #TODO: copy paste the structure from your task3Allison_v1.py or whatever 
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, 3)
         self.conv2 = nn.Conv2d(64, 128, 3)
@@ -27,7 +25,6 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(256, 10)
 
     def forward(self, x):
-        #TODO: Same as above
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = self.pool(F.relu(self.conv3(x)))
@@ -158,22 +155,18 @@ class Net(nn.Module):
         accuracy = (runningCorrects.item() / (len(minibatchesAndLabels) * 4)) 
 
         if testIdx == 0:
-            #TODO: same file name as the first line in main
             f = open("testresults_task3.txt", "a")
             f.write('Best Network, Retrained. Using ImageNet: ' + str(accuracy) + '\n')
             f.close()
         else:
-            #TODO: same file name as the first line in main
             f = open("testresults_task3.txt", "a")
             f.write('Best Network, Retrained. Using Cifar-10: ' + str(accuracy) + '\n')
             f.close()
 
 
 def main():
-    #TODO change file name
     open('testresults_task3.txt', 'w').close()
     net = Net()
-    #TODO: load the filename you saved in task3Allison_v1 or whatever
     network = torch.load('./Saved_Networks/bestNetwork_task3.pth')
     net.load_state_dict(network)
 

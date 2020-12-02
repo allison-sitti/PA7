@@ -11,14 +11,10 @@ import sys
 import pickle
 import random
 
-#TODO: copy / paste this file's contents into a new file and rename it task3Allison_v1.py or something
 
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        #TODO: change all of this stuff to something else that isn't the way it is in train.py or in task3.py
-        # the most important thing is that the first number, 3, and the last number, 10, remain unchanged, I think
-        # otherwise, you can add more conv layers and more linear layers, change the numbers, etc
         self.conv1 = nn.Conv2d(3, 64, 3)
         self.conv2 = nn.Conv2d(64, 128, 3)
         self.conv3 = nn.Conv2d(128, 256, 3)
@@ -28,8 +24,6 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(256, 10)
 
     def forward(self, x):
-        #TODO: likewise as above. For each added conv layer, you have to add a line like the 3 below. For each added linear layer,
-        # you'd have to add to the last lines
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = self.pool(F.relu(self.conv3(x)))
@@ -179,7 +173,6 @@ class Net(nn.Module):
 def main():
     net = Net()
     trainingData = net.processData(net)
-    #TODO: change the output file path when calling trainBatch to task3Allison_v1 or something.
     net.trainBatch(net, trainingData, './Saved_Networks/bestNetwork_task3.pth')
 
 if __name__ == "__main__":

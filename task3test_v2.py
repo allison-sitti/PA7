@@ -19,18 +19,20 @@ class Net(nn.Module):
         self.conv2 = nn.Conv2d(64, 128, 3)
         self.conv3 = nn.Conv2d(128, 256, 3)
         self.pool = nn.MaxPool2d(2, 2)
-        self.fc1 = nn.Linear(64*4*4, 128)
-        self.fc2 = nn.Linear(128, 256)
-        self.fc3 = nn.Linear(256, 10)
+        self.fc1 = nn.Linear(1024, 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, 128)
+        self.fc4 = nn.Linear(128, 10)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = self.pool(F.relu(self.conv3(x)))
-        x = x.view(-1, 64*4*4)
+        x = x.view(-1, 1024)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)
         return x
 
     def normalize(self, minibatches):
@@ -154,22 +156,18 @@ class Net(nn.Module):
         accuracy = (runningCorrects.item() / (len(minibatchesAndLabels) * 4)) 
 
         if testIdx == 0:
-            #TODO: same file name as the first line in main
             f = open("testresults_task3_v2.txt", "a")
             f.write('Best Network, Retrained. Using ImageNet: ' + str(accuracy) + '\n')
             f.close()
         else:
-            #TODO: same file name as the first line in main
             f = open("testresults_task3_v2.txt", "a")
             f.write('Best Network, Retrained. Using Cifar-10: ' + str(accuracy) + '\n')
             f.close()
 
 
 def main():
-    #TODO change file name
     open('testresults_task3_v2.txt', 'w').close()
     net = Net()
-    #TODO: load the filename you saved in task3Allison_v1 or whatever
     network = torch.load('./Saved_Networks/bestNetwork_task3Clint_v2.pth')
     net.load_state_dict(network)
 

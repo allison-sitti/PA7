@@ -175,7 +175,7 @@ def main():
     net = Net()
     trainingData = net.processData(net)
 
-    net.trainBatch(net, trainingData, './Saved_Networks/bestNetwork_task3Clint_v2.pth')
+    net.trainBatch(net, trainingData, './Saved_Networks/bestNetwork_task3_v2.pth')
 
 if __name__ == "__main__":
     main()

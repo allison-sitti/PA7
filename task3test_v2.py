@@ -168,7 +168,7 @@ class Net(nn.Module):
 def main():
     open('testresults_task3_v2.txt', 'w').close()
     net = Net()
-    network = torch.load('./Saved_Networks/bestNetwork_task3Clint_v2.pth')
+    network = torch.load('./Saved_Networks/bestNetwork_task3_v2.pth')
     net.load_state_dict(network)
 
     testData = []

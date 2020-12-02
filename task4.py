@@ -64,7 +64,7 @@ class Net(nn.Module):
     
 def main():
     net = Net()
-    previous = torch.load('./Saved_Networks/bestNetwork_task3Clint_v2.pth')
+    previous = torch.load('./Saved_Networks/bestNetwork_task3_v2.pth')
     net.load_state_dict(previous)
 
     imageFile = sys.argv[1]

@@ -1,4 +1,5 @@
 # PA7
+# Part A: README
 To run training for task 1:
     python train.py
 
@@ -37,6 +38,16 @@ The results of the tests are saved in the following files:
     testresults_task3_v1.txt
     testresults_task3_v2.txt
 
+# Part B: Performance comparison for task 2
+For task 2, the Cifar-10 data tested better than the ImageNet data.  The accuracy of the tested Cifar-10 data was 0.8382, while ImageNet accuracy was 0.6575
+
+# Part C: Network architecture for task 3
+The following are the network architectures that we tried:
+    1. 
+    2.
+    3.
 
 
+# Part D: time spent on project
+~70 hours spent on this project
 

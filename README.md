@@ -46,9 +46,9 @@ For task 2, the Cifar-10 data tested better than the ImageNet data.  The accurac
 
 # Part C: Network architecture for task 3
 The following are the network architectures that we tried:
-    1. 
-    2.
-    3.
+    1. We added a convolutional layer with channels of size 128, 256, and 3.  We also altered the input sizes of the three linear transformations.
+    2. A third convolutional layer was added, and we changed the channel sizes of all three convolutional layers. We also used five linear transformations.
+    3. We added a third convolutional layer and changed the channel sizes on all three layers.  We also used four linear transformations.
 
 
 # Part D: time spent on project

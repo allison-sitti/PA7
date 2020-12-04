@@ -40,6 +40,7 @@ The results of the tests are saved in the following files:
 
 To run task 4:
     python task4.py {name of image}
+    To train task 4 on new images, you must first add them to the folder task4_images
 
 # Part B: Performance comparison for task 2
 For task 2, the Cifar-10 data tested better than the ImageNet data.  The accuracy of the tested Cifar-10 data was 0.8382, while ImageNet accuracy was 0.6575
